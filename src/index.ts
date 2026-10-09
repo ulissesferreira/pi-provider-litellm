@@ -20,7 +20,7 @@ import * as piCodingAgent from "@earendil-works/pi-coding-agent";
 import { getAgentDir, readStoredCredential } from "@earendil-works/pi-coding-agent";
 import { budgetDisplaySetting, setupLiteLLMBudget } from "./budget.js";
 import { setupLiteLLMCostTracking } from "./cost.js";
-import { applyCuratedModels, curateStoredModels, isCuratedProxyUrl } from "./curated-models.js";
+import { applyCuratedModels, curateStoredModels, isCuratedProxyUrl, loadCatalog } from "./curated-models.js";
 import { discoverModels, isGpt6OrNewerModel, isGpt55OrNewerModel, normalizeBaseUrl } from "./discover.js";
 import { getGcloudToken, hasGcloudAdcCredentials, isGcloudTokenAuthEnabled } from "./gcloud-token.js";
 import { createLiteLLMProvider, DEFAULT_LITELLM_BASE_URL, isPlaceholderHost, toNativeModels } from "./provider.js";
@@ -498,11 +498,14 @@ function isFeatureEnabled(
   return !isPlainObject(raw) || raw.enabled !== false;
 }
 
-function getProviderDefinitions(settings: Record<string, unknown> | undefined): ProviderDefinition[] {
+function getProviderDefinitions(
+  settings: Record<string, unknown> | undefined,
+  catalogDisplayName?: string,
+): ProviderDefinition[] {
   const rawProviders = settings?.providers && typeof settings.providers === "object" ? settings.providers : undefined;
   const providerSettings = rawProviders as Record<string, unknown> | undefined;
   const defaultSettings = normalizeProviderSettings(providerSettings?.[PROVIDER_NAME]);
-  const defaultDisplayName = cleanConfig(process.env[ENV_DISPLAY_NAME]) ?? "Consensys LiteLLM";
+  const defaultDisplayName = cleanConfig(process.env[ENV_DISPLAY_NAME]) ?? catalogDisplayName ?? "LiteLLM";
 
   const makeDefinition = (
     name: string,
@@ -1885,7 +1888,10 @@ export default async function (pi: ExtensionAPI): Promise<void> {
     );
   }
   const settings = await readGlobalLiteLLMSettings();
-  const definitions = getProviderDefinitions(settings);
+  // Fork: the package's own catalog.json carries the deployment identity (proxy root, display
+  // name, curated routes). Loaded once; missing/invalid falls back to upstream behavior.
+  const catalog = await loadCatalog();
+  const definitions = getProviderDefinitions(settings, catalog.displayName);
   const skillsEnabled = isFeatureEnabled(settings, "skills");
   const mcpEnabled = isFeatureEnabled(settings, "mcp");
   const budgetEnabled = isFeatureEnabled(settings, "budget");
@@ -2039,10 +2045,11 @@ export default async function (pi: ExtensionAPI): Promise<void> {
   }
 
   function requestBaseUrl(definition: ProviderDefinition): string {
+    const fallbackRoot = catalog.proxyBaseUrl ?? DEFAULT_LITELLM_BASE_URL;
     try {
-      return `${resolveCredentialRoot(definition) ?? DEFAULT_LITELLM_BASE_URL}/v1`;
+      return `${resolveCredentialRoot(definition) ?? fallbackRoot}/v1`;
     } catch {
-      return `${DEFAULT_LITELLM_BASE_URL}/v1`;
+      return `${fallbackRoot}/v1`;
     }
   }
 
@@ -2130,10 +2137,12 @@ export default async function (pi: ExtensionAPI): Promise<void> {
       onProgress: isVerboseDiscovery() ? (message) => process.stderr.write(`LiteLLM: ${message}\n`) : undefined,
     });
     signal?.throwIfAborted();
-    // Fork: only when talking to the Consensys proxy, discovery is narrowed to the curated
-    // routes (renamed, ordered) per curated-models.ts. This is the single choke point shared
-    // by the activation seed and fetchModels, so filtered models never enter the catalog.
-    const models = isCuratedProxyUrl(auth.baseUrl) ? applyCuratedModels(result.models) : result.models;
+    // Fork: only when talking to the catalog's proxy, discovery is narrowed to the curated
+    // routes (renamed, ordered) per catalog.json. This is the single choke point shared by
+    // the activation seed and fetchModels, so filtered models never enter the catalog.
+    const models = isCuratedProxyUrl(catalog, auth.baseUrl)
+      ? applyCuratedModels(catalog, result.models)
+      : result.models;
     return {
       ...result,
       models,
@@ -2236,7 +2245,7 @@ export default async function (pi: ExtensionAPI): Promise<void> {
       // Fork: curate the persisted catalog too, so models stored by earlier sessions (or an
       // unfiltered upstream) cannot resurrect uncurated routes over the curated seed.
       const curatedStored = context.stored?.models
-        ? { ...context.stored, models: curateStoredModels(context.stored.models as LiteLLMModel[]) }
+        ? { ...context.stored, models: curateStoredModels(catalog, context.stored.models as LiteLLMModel[]) }
         : context.stored;
       if (context.allowNetwork) {
         networkRefreshAttempts.set(definition.name, (networkRefreshAttempts.get(definition.name) ?? 0) + 1);

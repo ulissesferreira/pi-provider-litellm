@@ -135,10 +135,16 @@ function containsForbiddenResolver(source: string): boolean {
 
 export function importSpecifiers(source: string, filename = "source.ts"): string[] {
   const [imports] = parse(source, filename);
+  // es-module-lexer reports `import.meta` as an entry (d === -2) with no specifier. It is
+  // meta-syntax the ESM loader always provides, not a module resolution, so it never counts
+  // as an import here. `import.meta.resolve(...)` and `createRequire(import.meta.url)` are
+  // still rejected by the token scan below.
   // v3 also decodes plain templates; keep the guard limited to quoted import specifiers.
-  const specifiers = imports.map((entry) =>
-    entry.d >= 0 && source[entry.s] === "`" ? UNVERIFIABLE_SPECIFIER : (entry.n ?? UNVERIFIABLE_SPECIFIER),
-  );
+  const specifiers = imports
+    .filter((entry) => entry.d !== -2)
+    .map((entry) =>
+      entry.d >= 0 && source[entry.s] === "`" ? UNVERIFIABLE_SPECIFIER : (entry.n ?? UNVERIFIABLE_SPECIFIER),
+    );
   if (containsForbiddenResolver(source)) specifiers.push(FORBIDDEN_RESOLVER);
   return specifiers;
 }

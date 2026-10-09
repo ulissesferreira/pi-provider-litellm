@@ -26,6 +26,8 @@ describe("importSpecifiers", () => {
     ['await import("pkg");', ["pkg"]],
     ['import a from "./rel.js";', ["./rel.js"]],
     ['import { readFile } from "node:fs/promises";', ["node:fs/promises"]],
+    ["const here = import.meta.url;", []],
+    ['const root = new URL("../catalog.json", import.meta.url);', []],
   ] as const)("extracts %s", ([source, expected]) => {
     expect(importSpecifiers(source)).toEqual([...expected]);
   });

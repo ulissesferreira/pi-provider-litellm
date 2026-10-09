@@ -87,6 +87,7 @@ const allowedPackageFiles = [
   /^package\.json$/,
   /^README\.md$/,
   /^LICENSE$/,
+  /^catalog\.json$/,
   new RegExp(`^src/(?:${allowedSourceModules.join("|")})\\.ts$`),
 ];
 

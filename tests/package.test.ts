@@ -96,7 +96,7 @@ describe("pi package compatibility", () => {
     const manifest = JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8")) as PackageManifest;
 
     expect(manifest.pi.extensions).toEqual(["./src/index.ts"]);
-    expect(manifest.files).toEqual(["src", "README.md", "LICENSE"]);
+    expect(manifest.files).toEqual(["src", "catalog.json", "README.md", "LICENSE"]);
     expect(manifest).not.toHaveProperty("main");
     expect(manifest).not.toHaveProperty("types");
     expect(manifest).not.toHaveProperty("exports");

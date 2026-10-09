@@ -6,7 +6,10 @@
 >
 > - The default proxy root is `https://litellm.consensys.info`; `/login litellm` pre-fills it and requests
 >   fall back to it. Credentials still come from Pi's `auth.json` or `LITELLM_API_KEY`.
-> - When talking to that host, discovery is narrowed to the curated catalog in `src/curated-models.ts`
+> - All fork configuration lives in `catalog.json` at the package root: the proxy root
+>   (`proxyBaseUrl`), the provider display name, and the curated route list. The package reads
+>   nothing from any other tool's config — editing that one file retargets the deployment.
+> - When talking to that host, discovery is narrowed to the curated catalog
 >   (route allowlist, display names, ordering). Any other proxy URL behaves exactly like upstream.
 > - The provider id stays `litellm`, so `defaultProvider`/`defaultModel` settings keep working.
 > - Everything below is upstream documentation and applies unchanged.
