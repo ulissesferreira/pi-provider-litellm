@@ -31,6 +31,29 @@ export function isCuratedProxyUrl(baseUrl: string | undefined): boolean {
 }
 
 /**
+ * Same curation for models Pi has persisted from earlier sessions: routes rooted at the curated
+ * proxy are narrowed to the catalog (dropping, renaming, ordering), so a stale store cannot
+ * resurrect uncurated routes. Models from any other root pass through untouched.
+ */
+export function curateStoredModels<T extends { id: string; name: string; baseUrl: string }>(models: readonly T[]): T[] {
+  if (CURATED_MODELS.length === 0) return [...models];
+  const order = new Map(CURATED_MODELS.map((entry, index) => [entry.id, index]));
+  const names = new Map(CURATED_MODELS.map((entry) => [entry.id, entry.name]));
+  const others: T[] = [];
+  const curated: T[] = [];
+  for (const model of models) {
+    if (isCuratedProxyUrl(model.baseUrl) && order.has(model.id)) {
+      curated.push({ ...model, name: names.get(model.id) ?? model.name });
+    } else if (!isCuratedProxyUrl(model.baseUrl)) {
+      others.push(model);
+    }
+    // Consensys-rooted routes outside the catalog are dropped.
+  }
+  curated.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return [...others, ...curated];
+}
+
+/**
  * Filters discovery output down to `CURATED_MODELS`, applies the curated
  * display names, and restores the curated order. Models the proxy stopped
  * serving drop out; models added to the list appear after the next refresh.

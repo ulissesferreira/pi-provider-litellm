@@ -20,7 +20,7 @@ import * as piCodingAgent from "@earendil-works/pi-coding-agent";
 import { getAgentDir, readStoredCredential } from "@earendil-works/pi-coding-agent";
 import { budgetDisplaySetting, setupLiteLLMBudget } from "./budget.js";
 import { setupLiteLLMCostTracking } from "./cost.js";
-import { applyCuratedModels, isCuratedProxyUrl } from "./curated-models.js";
+import { applyCuratedModels, curateStoredModels, isCuratedProxyUrl } from "./curated-models.js";
 import { discoverModels, isGpt6OrNewerModel, isGpt55OrNewerModel, normalizeBaseUrl } from "./discover.js";
 import { getGcloudToken, hasGcloudAdcCredentials, isGcloudTokenAuthEnabled } from "./gcloud-token.js";
 import { createLiteLLMProvider, DEFAULT_LITELLM_BASE_URL, isPlaceholderHost, toNativeModels } from "./provider.js";
@@ -2233,11 +2233,16 @@ export default async function (pi: ExtensionAPI): Promise<void> {
     const refreshModels = provider.refreshModels!;
     provider.refreshModels = async (context) => {
       const refreshGeneration = loginGeneration;
+      // Fork: curate the persisted catalog too, so models stored by earlier sessions (or an
+      // unfiltered upstream) cannot resurrect uncurated routes over the curated seed.
+      const curatedStored = context.stored?.models
+        ? { ...context.stored, models: curateStoredModels(context.stored.models as LiteLLMModel[]) }
+        : context.stored;
       if (context.allowNetwork) {
         networkRefreshAttempts.set(definition.name, (networkRefreshAttempts.get(definition.name) ?? 0) + 1);
       }
       try {
-        await refreshModels(context);
+        await refreshModels(curatedStored === context.stored ? context : { ...context, stored: curatedStored });
       } finally {
         if (
           definition.name === PROVIDER_NAME &&
