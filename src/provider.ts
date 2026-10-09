@@ -47,9 +47,10 @@ export function toNativeModels(
   }));
 }
 
-export const DEFAULT_LITELLM_BASE_URL = "https://litellm.example.com";
+// Fork: the only deployment this build talks to is the Consensys LiteLLM proxy, so it is the default root.
+export const DEFAULT_LITELLM_BASE_URL = "https://litellm.consensys.info";
 const CHAT_TOOL_CAP = 128;
-const PLACEHOLDER_HOSTNAMES = new Set([canonicalHostname(new URL(DEFAULT_LITELLM_BASE_URL).hostname)]);
+const PLACEHOLDER_HOSTNAMES = new Set([canonicalHostname(new URL("https://litellm.example.com").hostname)]);
 
 function canonicalHostname(hostname: string): string {
   return hostname.replace(/\.$/, "");

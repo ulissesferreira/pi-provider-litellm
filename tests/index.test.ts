@@ -201,7 +201,7 @@ describe("extension startup", () => {
     expect(pi.providers.map((provider) => provider.id)).toEqual(["litellm"]);
     expect(pi.providers[0]).toEqual(
       expect.objectContaining({
-        name: "LiteLLM",
+        name: "Consensys LiteLLM",
         stream: expect.any(Function),
         streamSimple: expect.any(Function),
         refreshModels: expect.any(Function),
@@ -262,7 +262,7 @@ describe("extension startup", () => {
 
     await extension(pi);
 
-    expect(pi.providers[0]?.name).toBe("LiteLLM");
+    expect(pi.providers[0]?.name).toBe("Consensys LiteLLM");
   });
 
   it("does not apply LITELLM_DISPLAY_NAME to alias providers", async () => {
@@ -579,7 +579,10 @@ describe("extension startup", () => {
 
     await extension(pi);
 
-    expect(pi.providers[0]?.auth.apiKey).toMatchObject({ name: "LiteLLM API key", login: expect.any(Function) });
+    expect(pi.providers[0]?.auth.apiKey).toMatchObject({
+      name: "Consensys LiteLLM API key",
+      login: expect.any(Function),
+    });
   });
 
   it('treats literal "undefined" env values as unset', async () => {
@@ -591,7 +594,7 @@ describe("extension startup", () => {
 
     await extension(pi);
 
-    expect(pi.providers[0]?.baseUrl).toBe("https://litellm.example.com/v1");
+    expect(pi.providers[0]?.baseUrl).toBe("https://litellm.consensys.info/v1");
   });
 
   it("uses explicitly allowed insecure HTTP for a provider", async () => {

@@ -1,5 +1,16 @@
 # pi-provider-litellm
 
+> **Fork notice (pi-litellm-consensys).** This is Ulisses Ferreira's fork of
+> [balcsida/pi-provider-litellm](https://github.com/balcsida/pi-provider-litellm), adapted for a single
+> deployment: the Consensys LiteLLM proxy.
+>
+> - The default proxy root is `https://litellm.consensys.info`; `/login litellm` pre-fills it and requests
+>   fall back to it. Credentials still come from Pi's `auth.json` or `LITELLM_API_KEY`.
+> - When talking to that host, discovery is narrowed to the curated catalog in `src/curated-models.ts`
+>   (route allowlist, display names, ordering). Any other proxy URL behaves exactly like upstream.
+> - The provider id stays `litellm`, so `defaultProvider`/`defaultModel` settings keep working.
+> - Everything below is upstream documentation and applies unchanged.
+
 LiteLLM proxy native Provider extension for [Pi](https://pi.dev). Pi 0.99.2+ is required; on older Pi, install `npm:pi-provider-litellm@3.4.0`.
 
 Discovers models from self-hosted LiteLLM proxies and registers them under Pi providers. The default provider is `litellm`; optional aliases can register additional LiteLLM providers with separate credentials. Supports `/login litellm`, LiteLLM MCP tools, LiteLLM Skills Gateway prompt injection, and Google ADC token auth. Tries `/model/info` first (admin endpoint with rich metadata), falls back to `/v1/models` (OpenAI-compatible) on 401/403/404 or an empty list, then tries `/health` plus per-endpoint `/model/info` for older LiteLLM proxies.

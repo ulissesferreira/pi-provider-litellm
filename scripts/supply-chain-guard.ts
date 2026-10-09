@@ -69,6 +69,7 @@ export const allowedSourceModules = [
   "backend-identity",
   "budget",
   "cost",
+  "curated-models",
   "discover",
   "gcloud-token",
   "index",

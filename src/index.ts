@@ -20,6 +20,7 @@ import * as piCodingAgent from "@earendil-works/pi-coding-agent";
 import { getAgentDir, readStoredCredential } from "@earendil-works/pi-coding-agent";
 import { budgetDisplaySetting, setupLiteLLMBudget } from "./budget.js";
 import { setupLiteLLMCostTracking } from "./cost.js";
+import { applyCuratedModels, isCuratedProxyUrl } from "./curated-models.js";
 import { discoverModels, isGpt6OrNewerModel, isGpt55OrNewerModel, normalizeBaseUrl } from "./discover.js";
 import { getGcloudToken, hasGcloudAdcCredentials, isGcloudTokenAuthEnabled } from "./gcloud-token.js";
 import { createLiteLLMProvider, DEFAULT_LITELLM_BASE_URL, isPlaceholderHost, toNativeModels } from "./provider.js";
@@ -501,7 +502,7 @@ function getProviderDefinitions(settings: Record<string, unknown> | undefined): 
   const rawProviders = settings?.providers && typeof settings.providers === "object" ? settings.providers : undefined;
   const providerSettings = rawProviders as Record<string, unknown> | undefined;
   const defaultSettings = normalizeProviderSettings(providerSettings?.[PROVIDER_NAME]);
-  const defaultDisplayName = cleanConfig(process.env[ENV_DISPLAY_NAME]) ?? "LiteLLM";
+  const defaultDisplayName = cleanConfig(process.env[ENV_DISPLAY_NAME]) ?? "Consensys LiteLLM";
 
   const makeDefinition = (
     name: string,
@@ -578,7 +579,7 @@ async function promptBaseUrl(interaction: AuthInteraction, definition: ProviderD
     await interaction.prompt({
       type: "text",
       message: "Enter LiteLLM proxy URL (no trailing /v1):",
-      placeholder: "https://litellm.example.com",
+      placeholder: "https://litellm.consensys.info",
     })
   ).trim();
   if (!rawBaseUrl) throw new Error("Base URL is required");
@@ -2129,7 +2130,15 @@ export default async function (pi: ExtensionAPI): Promise<void> {
       onProgress: isVerboseDiscovery() ? (message) => process.stderr.write(`LiteLLM: ${message}\n`) : undefined,
     });
     signal?.throwIfAborted();
-    return { ...result, baseUrl: normalizeBaseUrl(auth.baseUrl, auth.allowInsecureHttp) };
+    // Fork: only when talking to the Consensys proxy, discovery is narrowed to the curated
+    // routes (renamed, ordered) per curated-models.ts. This is the single choke point shared
+    // by the activation seed and fetchModels, so filtered models never enter the catalog.
+    const models = isCuratedProxyUrl(auth.baseUrl) ? applyCuratedModels(result.models) : result.models;
+    return {
+      ...result,
+      models,
+      baseUrl: normalizeBaseUrl(auth.baseUrl, auth.allowInsecureHttp),
+    };
   }
 
   // Pi's startup path only ever refreshes with allowNetwork:false, and it returns before the
